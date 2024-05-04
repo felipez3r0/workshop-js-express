@@ -17,4 +17,16 @@ export default class UserController{
     })
     res.json(user)
   } 
+
+  static async show(req, res) {
+    const user = await User.findUnique({
+      where: {
+        id: parseInt(req.params.id)
+      }
+    })
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' })
+    }
+    res.json(user)
+  }  
 }

@@ -11,6 +11,7 @@ Para visualizar o projeto navegue pelas branchs que representam cada etapa do de
 2. [Organizando a estrutura do projeto](#2-organizando-a-estrutura-do-projeto)
 3. [Criando models, routes e controllers](#3-criando-models-routes-e-controllers)
 4. [Validando os dados da requisição](#4-validando-os-dados-da-requisição)
+5. [Criando uma rota para listar um usuário](#5-criando-uma-rota-para-listar-um-usuário)
 
 ## Passo a Passo
 
@@ -279,3 +280,31 @@ Vamos adicionar o validator na rota de criação de usuário
 ```javascript
 router.post('/', createUserValidator, UserController.create)
 ```
+
+### 5. Criando uma rota para listar um usuário
+
+Vamos adicionar o método show no arquivo src/controllers/user.controller.js
+
+```javascript
+export default class UserController{
+  static async show(req, res) {
+    const user = await User.findUnique({
+      where: {
+        id: parseInt(req.params.id)
+      }
+    })
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' })
+    }
+    res.json(user)
+  }
+}
+```
+
+Vamos adicionar a rota no arquivo src/routes/user.route.js
+
+```javascript
+router.get('/:id', UserController.show)
+```
+
+Agora temos uma rota para listar um usuário, para testar a rota, utilize o Postman / Insomnia / Thunderclient para enviar uma requisição GET para http://localhost:3000/api/users/:id substituindo :id pelo id do usuário.

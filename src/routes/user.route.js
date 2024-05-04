@@ -6,5 +6,6 @@ const router = Router()
 
 router.get('/', UserController.index)
 router.post('/', createUserValidator, UserController.create)
+router.get('/:id', UserController.show)
 
 export default router
