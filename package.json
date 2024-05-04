@@ -1,0 +1,19 @@
+{
+  "name": "workshop-js-express",
+  "version": "1.0.0",
+  "description": "Para visualizar o projeto navegue pelas branchs que representam cada etapa do desenvolvimento",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
