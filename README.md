@@ -9,6 +9,7 @@ Para visualizar o projeto navegue pelas branchs que representam cada etapa do de
 
 1. [Configuração do projeto](#1-configuração-do-projeto)
 2. [Organizando a estrutura do projeto](#2-organizando-a-estrutura-do-projeto)
+3. [Criando models, routes e controllers](#3-criando-models-routes-e-controllers)
 
 ## Passo a Passo
 
@@ -132,3 +133,97 @@ Executamos o comando para criar o banco de dados
 ```bash
 npx prisma db push
 ```
+
+### 3. Criando models, routes e controllers
+
+Vamos criar o arquivo src/models/user.model.js
+
+```javascript
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+export default prisma.user
+```
+
+Vamos criar o arquivo src/controllers/user.controller.js
+
+```javascript
+import User from '../models/user.model.js'
+
+export default class UserController{
+  static async index(req, res) {
+    const users = await User.findMany()
+    res.json(users)
+  }
+}
+```
+
+Vamos criar o arquivo src/routes/user.route.js
+
+```javascript
+import { Router } from 'express'
+import UserController from '../controllers/user.controller.js'
+
+const router = Router()
+
+router.get('/', UserController.index)
+
+export default router
+```
+
+Vamos importar a rota no arquivo src/routes/index.js
+
+```javascript
+import { Router } from 'express'
+import userRoute from './user.route.js'
+
+const router = Router()
+
+router.use('/users', userRoute)
+
+export default router
+```
+
+Vamos importar as rotas no arquivo server.js
+
+```javascript
+import routes from './routes/index.js'
+app.use('/api', routes)
+```
+
+Para testar a execução, execute o comando `npm start` e verifique se a mensagem é exibida no terminal.
+Para testar a rota, acesse http://localhost:3000/api/users no navegador e verifique se a mensagem é exibida.
+
+Vamos criar uma rota para criar um usuário
+
+Vamos adicionar o método create no arquivo src/controllers/user.controller.js
+
+```javascript
+export default class UserController{
+  static async index(req, res) {
+    const users = await User.findMany()
+    res.json(users)
+  }
+  static async create(req, res) {
+    const user = await User.create({
+      data: req.body
+    })
+    res.json(user)
+  }  
+}
+```
+
+Vamos adicionar a rota no arquivo src/routes/user.route.js
+
+```javascript
+router.post('/', UserController.create)
+```
+
+Vamos adicionar no server.js o middleware para o express entender o body da requisição
+
+```javascript
+app.use(express.json())
+```
+
+Para testar a execução, execute o comando `npm start` e verifique se a mensagem é exibida no terminal.
