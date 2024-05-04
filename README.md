@@ -23,14 +23,22 @@ Ajustamos o package.json para executar o nodemon com o comando `npm start`.
 
 ```json
 "scripts": {
-    "start": "nodemon server.js"
+    "start": "nodemon src/server.js"
+  },
+```
+
+Caso aconteça algum erro na execução é possível configurar com npx para executar o nodemon.
+
+```json
+"scripts": {
+    "start": "npx nodemon src/server.js"
   },
 ```
 
 Criamos a pasta src e o arquivo server.js, nesse arquivo adicionamos apenas um console.log para testar a execução
 
 ```javascript
-console.log('Hello World');
+console.log('Hello World')
 ```
 
 Para testar a execução, execute o comando `npm start` e verifique se a mensagem é exibida no terminal.
