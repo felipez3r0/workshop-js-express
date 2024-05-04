@@ -12,6 +12,7 @@ Para visualizar o projeto navegue pelas branchs que representam cada etapa do de
 3. [Criando models, routes e controllers](#3-criando-models-routes-e-controllers)
 4. [Validando os dados da requisição](#4-validando-os-dados-da-requisição)
 5. [Criando uma rota para listar um usuário](#5-criando-uma-rota-para-listar-um-usuário)
+6. [Criando as rotas de atualização e exclusão de usuário](#6-criando-as-rotas-de-atualização-e-exclusão-de-usuário)
 
 ## Passo a Passo
 
@@ -308,3 +309,110 @@ router.get('/:id', UserController.show)
 ```
 
 Agora temos uma rota para listar um usuário, para testar a rota, utilize o Postman / Insomnia / Thunderclient para enviar uma requisição GET para http://localhost:3000/api/users/:id substituindo :id pelo id do usuário.
+
+### 6. Criando as rotas de atualização e exclusão de usuário
+
+Vamos adicionar o método update no arquivo src/controllers/user.controller.js
+
+```javascript
+export default class UserController{
+  static async update(req, res) {
+    const user = await User.findUnique({
+      where: {
+        id: parseInt(req.params.id)
+      }
+    })
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' })
+    }
+    const updatedUser = await User.update({
+      where: {
+        id: parseInt(req.params.id)
+      },
+      data: req.body
+    })
+    res.json(updatedUser)
+  }
+}
+```
+
+Vamos adicionar o método delete no arquivo src/controllers/user.controller.js
+
+```javascript
+export default class UserController{
+  static async delete(req, res) {
+    const user = await User.findUnique({
+      where: {
+        id: parseInt(req.params.id)
+      }
+    })
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' })
+    }
+    await User.delete({
+      where: {
+        id: parseInt(req.params.id)
+      }
+    })
+    res.status(204).json({ message: 'Usuário deletado com sucesso' })
+  }
+}
+```
+
+Vamos adicionar as rotas no arquivo src/routes/user.route.js
+
+```javascript
+router.put('/:id', UserController.update)
+router.delete('/:id', UserController.delete)
+```
+
+Agora temos rotas para atualizar e deletar um usuário, para testar as rotas, utilize o Postman / Insomnia / Thunderclient para enviar uma requisição PUT ou DELETE para http://localhost:3000/api/users/:id substituindo :id pelo id do usuário.
+
+Podemos validar a rota de atualização e exclusão de usuário, para isso, vamos adicionar no arquivo src/validators/user.validator.js os validadores updateUserValidator e deleteUserValidator
+
+```javascript
+import { body, param } from 'express-validator'
+
+export const updateUserValidator = [
+  param('id').isInt().withMessage("ID inválido"),
+  body('email').isEmail().withMessage("Email inválido"),
+  body('name').isString().withMessage("Nome inválido"),
+]
+
+export const deleteUserValidator = [
+  param('id').isInt().withMessage("Id inválido"),
+]
+```
+
+Vamos importar os validadores no arquivo src/routes/user.route.js
+
+```javascript
+import { createUserValidator, updateUserValidator, deleteUserValidator } from '../validators/user.validator.js'
+```
+
+Vamos adicionar os validadores nas rotas de atualização e exclusão de usuário
+
+```javascript
+router.put('/:id', updateUserValidator, UserController.update)
+router.delete('/:id', deleteUserValidator, UserController.delete)
+```
+
+No arquivo src/controllers/user.controller.js, vamos adicionar a validação dos dados
+
+```javascript
+  static async update(req, res) {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }   
+    ...
+```
+
+```javascript
+  static async delete(req, res) {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }   
+    ...
+```
