@@ -10,6 +10,7 @@ Para visualizar o projeto navegue pelas branchs que representam cada etapa do de
 1. [Configuração do projeto](#1-configuração-do-projeto)
 2. [Organizando a estrutura do projeto](#2-organizando-a-estrutura-do-projeto)
 3. [Criando models, routes e controllers](#3-criando-models-routes-e-controllers)
+4. [Validando os dados da requisição](#4-validando-os-dados-da-requisição)
 
 ## Passo a Passo
 
@@ -227,3 +228,54 @@ app.use(express.json())
 ```
 
 Para testar a execução, execute o comando `npm start` e verifique se a mensagem é exibida no terminal.
+Para testar a rota, utilize o Postman / Insomnia / Thunderclient para enviar uma requisição POST para http://localhost:3000/api/users com o body contendo os dados do usuário.
+
+### 4. Validando os dados da requisição
+
+Vamos adicionar a validação dos dados utilizando o express-validator
+
+```bash
+npm i express-validator
+```
+
+Vamos adicionar a validação no arquivo src/controllers/user.controller.js
+
+```javascript
+import { validationResult } from 'express-validator'
+
+export default class UserController{
+  static async create(req, res) {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    const user = await User.create({
+      data: req.body
+    })
+    res.json(user)
+  }  
+}
+```
+
+Vamos criar um arquivo src/validators/user.validator.js
+
+```javascript
+import { body } from 'express-validator'
+
+export const createUserValidator = [
+  body('email').isEmail().withMessage("Email inválido"),
+  body('name').isString().withMessage("Nome inválido"),
+]
+```
+
+Vamos importar o validator no arquivo src/routes/user.route.js
+
+```javascript
+import { createUserValidator } from '../validators/user.validator.js'
+```
+
+Vamos adicionar o validator na rota de criação de usuário
+
+```javascript
+router.post('/', createUserValidator, UserController.create)
+```
