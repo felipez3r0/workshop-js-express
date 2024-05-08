@@ -13,6 +13,7 @@ Para visualizar o projeto navegue pelas branchs que representam cada etapa do de
 4. [Validando os dados da requisição](#4-validando-os-dados-da-requisição)
 5. [Criando uma rota para listar um usuário](#5-criando-uma-rota-para-listar-um-usuário)
 6. [Criando as rotas de atualização e exclusão de usuário](#6-criando-as-rotas-de-atualização-e-exclusão-de-usuário)
+7. [Adicionando um novo atributo para o usuário](#7-adicionando-um-novo-atributo-para-o-usuário)
 
 ## Passo a Passo
 
@@ -416,3 +417,32 @@ No arquivo src/controllers/user.controller.js, vamos adicionar a validação dos
     }   
     ...
 ```
+
+### 7. Adicionando um novo atributo para o usuário
+
+Vamos adicionar o atributo age no arquivo prisma/schema.prisma
+
+```prisma
+model User {
+  id    Int     @id @default(autoincrement())
+  email String  @unique
+  name  String?
+  age   Int?
+}
+```
+
+Vamos executar o comando para atualizar o banco de dados
+
+```bash
+npx prisma db push
+```
+
+Esse comando irá adicionar a coluna age na tabela de usuários. Os dados existentes não serão afetados. Caso o campo seja obrigatório, é necessário adicionar o atributo @default(0) para definir um valor padrão.
+
+Vamos ajustar o novo atributo, ele pode ser opcional, para isso, vamos adicionar o atributo required como false no arquivo src/validators/user.validator.js
+
+```javascript
+  body('age').isInt().withMessage("Idade inválida").optional(),
+```
+
+Agora é possível enviar a idade do usuário na requisição de criação e atualização. Nosso controller já está usando o body completo da requisição, então não é necessário fazer nenhuma alteração no controller.
