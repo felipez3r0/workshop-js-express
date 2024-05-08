@@ -14,6 +14,7 @@ Para visualizar o projeto navegue pelas branchs que representam cada etapa do de
 5. [Criando uma rota para listar um usuário](#5-criando-uma-rota-para-listar-um-usuário)
 6. [Criando as rotas de atualização e exclusão de usuário](#6-criando-as-rotas-de-atualização-e-exclusão-de-usuário)
 7. [Adicionando um novo atributo para o usuário](#7-adicionando-um-novo-atributo-para-o-usuário)
+8. [Adicionando relacionamento entre tabelas](#8-adicionando-relacionamento-entre-tabelas)
 
 ## Passo a Passo
 
@@ -446,3 +447,154 @@ Vamos ajustar o novo atributo, ele pode ser opcional, para isso, vamos adicionar
 ```
 
 Agora é possível enviar a idade do usuário na requisição de criação e atualização. Nosso controller já está usando o body completo da requisição, então não é necessário fazer nenhuma alteração no controller.
+
+### 8. Adicionando relacionamento entre tabelas
+
+Vamos criar uma nova tabela chamada Task no arquivo prisma/schema.prisma para salvar as tarefas de um usuário
+
+```prisma
+model Task {
+  id     Int     @id @default(autoincrement())
+  title  String
+  userId Int
+  user   User    @relation(fields: [userId], references: [id])
+}
+```
+
+Observem que a tabela Task possui um campo userId que é uma chave estrangeira para a tabela User. O campo userId é obrigatório, pois não possui o atributo required como false.
+O relacionamento entre as tabelas é feito através do atributo @relation, onde é informado os campos que fazem o relacionamento. No caso, o campo userId da tabela Task faz referência ao campo id da tabela User.
+
+Precisamos ajustar o model User para ter a relação com a tabela Task
+
+```prisma
+model User {
+  id    Int     @id @default(autoincrement())
+  email String  @unique
+  name  String?
+  age   Int?
+  tasks Task[]
+}
+```
+
+O User tem um array de tasks, que é o relacionamento com a tabela Task.
+
+Agora Vamos executar o comando para atualizar o banco de dados
+
+```bash
+npx prisma db push
+```
+
+Esse comando irá adicionar a tabela Task no banco de dados. Agora é possível criar tarefas para um usuário.
+
+Vamos criar o arquivo src/models/task.model.js
+
+```javascript
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+export default prisma.task
+```
+
+Vamos criar o arquivo src/controllers/task.controller.js
+
+```javascript
+import Task from '../models/task.model.js'
+
+export default class TaskController{
+  static async index(req, res) {
+    const tasks = await Task.findMany()
+    res.json(tasks)
+  }
+  static async create(req, res) {
+    const task = await Task.create({
+      data: req.body
+    })
+    res.json(task)
+  }
+}
+```
+
+Vamos criar o arquivo src/routes/task.route.js
+
+```javascript
+import { Router } from 'express'
+import TaskController from '../controllers/task.controller.js'
+
+const router = Router()
+
+router.get('/', TaskController.index)
+router.post('/', TaskController.create)
+
+export default router
+```
+
+Vamos importar a rota no arquivo src/routes/index.js
+
+```javascript
+import taskRoute from './task.route.js'
+
+router.use('/tasks', taskRoute)
+```
+
+Agora é possível criar tarefas para um usuário, para testar as rotas, utilize o Postman / Insomnia / Thunderclient para enviar uma requisição POST para http://localhost:3000/api/tasks com o body contendo os dados da tarefa.
+
+Um exemplo de body para criar uma tarefa
+
+```json
+{
+  "title": "Tarefa 1",
+  "userId": 1
+}
+```
+
+Reparem que é necessário informar o id do usuário que a tarefa pertence. Para listar as tarefas, utilize a rota http://localhost:3000/api/tasks.
+
+Podemos ajustar a rota para retornar com os campos do usuário, para isso, vamos ajustar o método index no arquivo src/controllers/task.controller.js
+
+```javascript
+  static async index(req, res) {
+    const tasks = await Task.findMany({
+      include: {
+        user: true
+      }
+    })
+    res.json(tasks)
+  }
+```
+
+Observem que foi adicionado o atributo include com o valor user: true, isso faz com que a tarefa retorne com os dados do usuário. Atenção ao utilizar o include, pois pode retornar muitos dados desnecessários. É possível informar os campos que deseja retornar.
+
+```javascript
+  static async index(req, res) {
+    const tasks = await Task.findMany({
+      include: {
+        user: {
+          select: {
+            name: true
+          }
+        }
+      }
+    })
+    res.json(tasks)
+  }
+```
+
+Vamos adicionar um novo validator para a Task no arquivo src/validators/task.validator.js
+
+```javascript
+import { body } from 'express-validator'
+
+export const createTaskValidator = [
+  body('title').isString().withMessage("Título inválido"),
+  body('userId').isInt().withMessage("ID do usuário inválido"),
+]
+```
+
+Vamos importar o validator no arquivo src/routes/task.route.js
+
+```javascript
+import { createTaskValidator } from '../validators/task.validator.js'
+
+router.post('/', createTaskValidator, TaskController.create)
+```
