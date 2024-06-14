@@ -15,6 +15,7 @@ Para visualizar o projeto navegue pelas branchs que representam cada etapa do de
 6. [Criando as rotas de atualização e exclusão de usuário](#6-criando-as-rotas-de-atualização-e-exclusão-de-usuário)
 7. [Adicionando um novo atributo para o usuário](#7-adicionando-um-novo-atributo-para-o-usuário)
 8. [Adicionando relacionamento entre tabelas](#8-adicionando-relacionamento-entre-tabelas)
+9. [Adicionando Swagger para documentação da API](#9-adicionando-swagger-para-documentação-da-api)
 
 ## Passo a Passo
 
@@ -598,3 +599,187 @@ import { createTaskValidator } from '../validators/task.validator.js'
 
 router.post('/', createTaskValidator, TaskController.create)
 ```
+
+### 9. Adicionando Swagger para documentação da API
+
+Vamos instalar o swagger-autogen para gerar a documentação da API
+
+```bash
+npm i --save-dev swagger-autogen
+```
+
+Vamos instalar o swagger-ui-express para visualizar a documentação
+
+```bash
+npm i swagger-ui-express
+```
+
+Vamos criar o arquivo src/swagger.js
+
+```javascript
+import swaggerAutogen from 'swagger-autogen'
+
+const doc = {
+  info: {
+      version: "1.0.0",
+      title: "Minha API",
+      description: "API de exemplo - FATEC ADS"
+  },
+  servers: [
+      {
+          url: 'http://localhost:3000'
+      }
+  ]
+};
+
+const outputFile = './swagger-output.json';
+const endpointsFiles = ['./server.js'];
+
+swaggerAutogen({ openapi: "3.0.0" })(outputFile, endpointsFiles, doc)
+```
+
+Vamos adicionar a rota para visualizar a documentação no arquivo server.js
+
+```javascript
+import express from 'express'
+import routes from './routes/index.js'
+import swaggerUi from 'swagger-ui-express'
+import swaggerFile from './swagger-output.json' with { type: "json" } // Carregar o arquivo JSON
+
+const app = express()
+const PORT = 3000
+
+app.use(express.json())
+app.use('/api', routes)
+
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerFile)) // Adicionar a rota para visualizar a documentação
+
+app.listen(PORT, () => {
+  console.log(`Server executando em http://localhost:${PORT}`)
+})
+```
+
+Precisamos adicionar o comando para gerar a documentação no arquivo package.json
+
+```json
+"scripts": {
+    "start": "npx nodemon src/server.js",
+    "swagger": "node src/swagger.js"
+  },
+```
+
+Agora é possível gerar a documentação da API com o comando `npm run swagger` e visualizar a documentação em http://localhost:3000/docs.
+
+Podemos adicionar ao nosso swagger.js a definição das entidades da API e dos Body Params que vamos utilizar
+
+```javascript
+const doc = {
+  info: {
+      version: "1.0.0",
+      title: "Minha API",
+      description: "API de exemplo - FATEC ADS"
+  },
+  servers: [
+      {
+          url: 'http://localhost:3000'
+      }
+  ],
+  definitions: {
+    AddOrUpdateUser: {
+      email: "novoemail@email.com", name: "Novo nome do usuário", age: 25
+    },
+    AddOrUpdateTask: {
+      title: "Nova tarefa", userId: 1
+    }
+  }
+}
+```
+
+No nosso controller, podemos adicionar um comentário para o swagger-autogen entender o que é esperado na requisição
+
+```javascript
+  static async create(req, res) {
+    /*  #swagger.requestBody = {
+            required: true,
+            content: {
+                "application/json": {
+                    schema: {
+                        $ref: "#/components/schemas/AddOrUpdateUser"
+                    }  
+                }
+            }
+        } 
+    */
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    const user = await User.create({
+      data: req.body
+    })
+    res.json(user)
+  } 
+```
+
+Outra opção, talvez até mais interessante, é adicionar o comentário diretamente no arquivo de validação
+
+```javascript
+import { body, param } from 'express-validator'
+
+export const createUserValidator = [
+  /*  #swagger.requestBody = {
+          required: true,
+          content: {
+              "application/json": {
+                  schema: {
+                      $ref: "#/components/schemas/AddOrUpdateUser"
+                  }  
+              }
+          }
+      } 
+  */  
+  body('email').isEmail().withMessage("Email inválido"),
+  body('name').isString().withMessage("Nome inválido"),
+  body('age').isInt().withMessage("Idade inválida").optional(),
+]
+
+export const updateUserValidator = [
+  /*
+    #swagger.parameters['id'] = {
+      in: 'path',
+      description: 'ID do usuário',
+      required: true,
+      type: 'integer'
+    }
+    
+    #swagger.requestBody = {
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            $ref: "#/components/schemas/AddOrUpdateUser"
+          }  
+        }
+      }
+    }
+  */
+  param('id').isInt().withMessage("ID inválido"),
+  body('email').isEmail().withMessage("Email inválido"),
+  body('name').isString().withMessage("Nome inválido"),
+  body('age').isInt().withMessage("Idade inválida").optional(),
+]
+
+export const deleteUserValidator = [
+  /*
+    #swagger.parameters['id'] = {
+      in: 'path',
+      description: 'ID do usuário',
+      required: true,
+      type: 'integer'
+    }
+  */
+  param('id').isInt().withMessage("ID inválido"),
+]
+```
+
+Dessa forma, o swagger-autogen irá gerar a documentação com base nos comentários que adicionamos no código. Para atualizar a documentação, execute o comando `npm run swagger` e verifique a documentação em http://localhost:3000/docs depois de iniciar o projeto com `npm start`.
