@@ -1,5 +1,7 @@
 import User from '../models/user.model.js'
 import { validationResult } from 'express-validator'
+import bcrypt from 'bcrypt'
+import * as jose from 'jose'
 
 export default class UserController{
   static async index(req, res) {
@@ -12,8 +14,12 @@ export default class UserController{
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() })
     }
+    const password = await bcrypt.hash(req.body.password, 10) // Gera a senha criptografada com salt 10
     const user = await User.create({
-      data: req.body
+      data: {
+        ...req.body,
+        password
+      }
     })
     res.json(user)
   } 
@@ -71,5 +77,43 @@ export default class UserController{
       }
     })
     res.status(204).json({ message: 'Usuário deletado com sucesso' })
-  }  
+  }
+
+  static async login(req, res) {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    } 
+
+    const { email, password } = req.body
+    const user = await User.findUnique({
+      where: {
+        email
+      }
+    })
+
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' })
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password)
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Senha inválida' })
+    }
+
+    // Gera o token JWT
+    const encoder = new TextEncoder();
+    const secretKey = encoder.encode(process.env.JWT_SECRET);
+    const token = await new jose.SignJWT({
+      id: user.id,
+      email: user.email,
+      name: user.name
+    })
+    .setIssuedAt()
+    .setExpirationTime('1d') // 1 dia
+    .setProtectedHeader({ alg: 'HS256' }) // algorithm
+    .sign(secretKey)
+
+    res.json({ message: 'Usuário logado com sucesso!', token })
+  }
 }

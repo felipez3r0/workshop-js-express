@@ -125,6 +125,35 @@
         }
       }
     },
+    "/api/users/login": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginUser"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tasks/": {
       "get": {
         "description": "",
@@ -132,7 +161,12 @@
           "200": {
             "description": "OK"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
         "description": "",
@@ -145,6 +179,12 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
     "schemas": {
       "User": {
         "type": "object",
@@ -164,6 +204,10 @@
           "age": {
             "type": "number",
             "example": 20
+          },
+          "password": {
+            "type": "string",
+            "example": "senha"
           }
         }
       },
@@ -198,6 +242,10 @@
           "age": {
             "type": "number",
             "example": 25
+          },
+          "password": {
+            "type": "string",
+            "example": "novasenha"
           }
         }
       },
@@ -211,6 +259,19 @@
           "userId": {
             "type": "number",
             "example": 1
+          }
+        }
+      },
+      "LoginUser": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "novoemail@email.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "novasenha"
           }
         }
       }
