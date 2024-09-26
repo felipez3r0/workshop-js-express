@@ -6,6 +6,14 @@ const doc = {
       title: "Minha API",
       description: "API de exemplo - FATEC ADS"
   },
+  components: {
+    securitySchemes:{
+        bearerAuth: {
+            type: 'http',
+            scheme: 'bearer'
+        }
+    }
+},
   servers: [
       {
           url: 'http://localhost:3000'
@@ -16,7 +24,8 @@ const doc = {
       id: 1,
       email: "email@email.com",
       name: "Nome do usuário",
-      age: 20
+      age: 20,
+      password: "senha"
     },
     Task: {
       id: 1,
@@ -26,11 +35,16 @@ const doc = {
     AddOrUpdateUser: {
       email: "novoemail@email.com",
       name: "Novo nome do usuário",
-      age: 25
+      age: 25,
+      password: "novasenha"
     },
     AddOrUpdateTask: {
       title: "Nova tarefa",
       userId: 1
+    },
+    LoginUser: {
+      email: "novoemail@email.com",
+      password: "novasenha"
     }
   }
 };

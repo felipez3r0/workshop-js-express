@@ -2,6 +2,9 @@ import Task from '../models/task.model.js'
 
 export default class TaskController{
   static async index(req, res) {
+    /* #swagger.security = [{
+        "bearerAuth": []
+    }] */    
     const tasks = await Task.findMany({
       include: {
         user: {

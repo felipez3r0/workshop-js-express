@@ -16,6 +16,7 @@ Para visualizar o projeto navegue pelas branchs que representam cada etapa do de
 7. [Adicionando um novo atributo para o usuário](#7-adicionando-um-novo-atributo-para-o-usuário)
 8. [Adicionando relacionamento entre tabelas](#8-adicionando-relacionamento-entre-tabelas)
 9. [Adicionando Swagger para documentação da API](#9-adicionando-swagger-para-documentação-da-api)
+10. [Adicionando autenticação com JWT](#10-adicionando-autenticação-com-jwt)
 
 ## Passo a Passo
 
@@ -783,3 +784,220 @@ export const deleteUserValidator = [
 ```
 
 Dessa forma, o swagger-autogen irá gerar a documentação com base nos comentários que adicionamos no código. Para atualizar a documentação, execute o comando `npm run swagger` e verifique a documentação em http://localhost:3000/docs depois de iniciar o projeto com `npm start`.
+
+### 10. Adicionando autenticação com JWT
+
+Vamos começar ajustando o arquivo prisma/schema.prisma para adicionar um campo password na tabela User
+
+```prisma
+model User {
+  id       Int     @id @default(autoincrement())
+  email    String  @unique
+  name     String?
+  age      Int?
+  password String
+  tasks    Task[]
+}
+```
+
+Vamos executar o comando para atualizar o banco de dados
+
+```bash
+npx prisma db push
+```
+
+Vamos instalar o pacote bcrypt para criptografar a senha
+
+```bash
+npm i bcrypt
+npm i -D @types/bcrypt
+```
+
+Vamos ajustar o cadastro de usuário para receber o password, começamos ajustando o `user.validator.js`
+
+```javascript
+body('password').isString().withMessage("Senha inválida"),
+```
+
+Ajustamos o `user.controller.js` para criptografar a senha, a ideia é utilizar o bcrypt para gerar a hash da senha e evitar salvar a senha em texto puro no banco de dados
+
+```javascript
+import bcrypt from 'bcrypt'
+
+export default class UserController{
+  static async create(req, res) {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+    const password = await bcrypt.hash(req.body.password, 10) // Gera a hash da senha
+    const user = await User.create({
+      data: {
+        ...req.body,
+        password
+      }
+    })
+    res.json(user)
+  }
+}
+```
+
+Agora é possível criar um usuário com senha criptografada, para testar a rota, utilize o Postman / Insomnia / Thunderclient para enviar uma requisição POST para http://localhost:3000/api/users com o body contendo os dados do usuário.
+
+Também podemos atualizar o swagger.js para adicionar o campo password
+
+```javascript
+    AddOrUpdateUser: {
+      email: "novoemail@email.com",
+      name: "Novo nome do usuário",
+      age: 25,
+      password: "novasenha"
+    },
+```
+
+Para a autenticação vamos gerar um JWT com o nome do usuário, seu id e o email, vamos instalar o pacote jose para gerar o JWT
+
+```bash
+npm i jose
+```
+
+No .env vamos adicionar uma chave secreta para gerar o JWT
+
+```env
+JWT_SECRET=chavesecretalongacommuitoscaracteres
+```
+
+No controller do user vamos criar uma função login
+
+```javascript
+import * as jose from 'jose'
+
+static async login(req, res) {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    } 
+
+    const { email, password } = req.body
+    const user = await User.findUnique({
+      where: {
+        email
+      }
+    })
+
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' })
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password)
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Senha inválida' })
+    }
+
+    // Gera o token JWT
+    const encoder = new TextEncoder();
+    const secretKey = encoder.encode(process.env.JWT_SECRET); // O método signJWT espera um Uint8Array, então vamos converter a string para Uint8Array
+
+    const token = await new jose.SignJWT({
+      id: user.id,
+      email: user.email,
+      name: user.name
+    })
+    .setIssuedAt()
+    .setExpirationTime('1d') // 1 dia
+    .setProtectedHeader({ alg: 'HS256' }) // algorithm
+    .sign(secretKey)
+
+    res.json({ message: 'Usuário logado com sucesso!', token })
+  }
+```
+
+Vamos ajustar o user.validator.js para validar o login
+
+```javascript
+export const loginValidator = [
+  /*  #swagger.requestBody = {
+          required: true,
+          content: {
+              "application/json": {
+                  schema: {
+                      $ref: "#/components/schemas/LoginUser"
+                  }  
+              }
+          }
+      } 
+  */
+  body('email').isEmail().withMessage("Email inválido"),
+  body('password').isString().withMessage("Senha inválida")
+]
+```
+
+Agora podemos adicionar essa rota no user.route.js
+
+```javascript
+router.post('/login', loginValidator, UserController.login)
+```
+
+Agora é possível fazer login na aplicação, para testar a rota, utilize o Postman / Insomnia / Thunderclient para enviar uma requisição POST para http://localhost:3000/api/users/login com o body contendo os dados do usuário.
+
+Com o token gerado, podemos adicionar a autenticação nas rotas, vamos criar um middleware para validar o token. Vamos criar o arquivo em uma pasta middlewares/auth.middleware.js
+
+```javascript
+import * as jose from 'jose'
+
+export default async function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '') // Pega o token do header
+  if (!token) { // Verifica se o token foi informado
+    return res.status(401).json({ message: 'Token não informado' })
+  }
+
+  const encoder = new TextEncoder();
+  const secretKey = encoder.encode(process.env.JWT_SECRET); // O método verify espera um Uint8Array, então vamos converter a string para Uint8Array
+
+  try {
+    const payload = await jose.jwtVerify(token, secretKey) // Verifica se o token é válido
+    req.user = payload
+    next() // Continua a execução
+  } catch (error) {
+    return res.status(401).json({ message: 'Token inválido' })
+  }
+}
+```
+
+Vamos adicionar o middleware nas rotas que precisam de autenticação, por exemplo, a rota de listagem de tarefas
+
+```javascript
+router.get('/', authMiddleware, TaskController.index)
+```
+
+Para avisar o swagger que vamos utilizar token em alguma rota vamos adicionar o component no swagger.js
+
+```javascript
+const doc = {
+  info: {
+      version: "1.0.0",
+      title: "Minha API",
+      description: "API de exemplo - FATEC ADS"
+  },
+  components: {
+    securitySchemes:{
+        bearerAuth: {
+            type: 'http',
+            scheme: 'bearer'
+        }
+    }
+},
+...
+```
+
+No TaskController, na função de listagem de tarefas vamos adicionar o comentário de security, isso vai avisar o swagger que essa rota precisa de autenticação
+
+```javascript
+export default class TaskController{
+  static async index(req, res) {
+    /* #swagger.security = [{
+        "bearerAuth": []
+    }] */ 
+```
+
+Para atualizar a documentação com as novas rotas e autenticação, execute o comando `npm run swagger` e verifique a documentação em http://localhost:3000/docs depois de iniciar o projeto com `npm start`.
